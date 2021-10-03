@@ -1,10 +1,10 @@
 use std::path::Path;
 
-struct DirectorFile {
+pub struct DirectorFile {
 }
 
 impl DirectorFile {
-    fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
+    pub fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
 
         DirectorFile {
 
