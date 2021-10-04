@@ -12,6 +12,7 @@ use chunk::rifx::Header;
 use chunk::rifx::Endianness;
 
 use chunk::imap;
+use chunk::imap::InitialMap;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -54,6 +55,19 @@ impl DirectorFile {
 
         match chunk {
             Chunk::Header(h) => h,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn imap(&self) -> &InitialMap {
+        let chunk = self.chunks.iter().find(|c| if let Chunk::InitialMap(i) = c {
+            true
+        } else {
+            false
+        }).unwrap();
+
+        match chunk {
+            Chunk::InitialMap(i) => i,
             _ => unreachable!(),
         }
     }
