@@ -3,6 +3,8 @@ use std::path::Path;
 
 mod chunk;
 
+mod endian;
+
 use chunk::Chunk;
 
 pub struct DirectorFile {
