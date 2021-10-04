@@ -27,4 +27,17 @@ impl DirectorFile {
 
         df
     }
+
+    pub fn header(&self) -> &Header {
+        let chunk = self.chunks.iter().find(|c| if let Chunk::Header(h) = c {
+            true
+        } else {
+            false
+        }).unwrap();
+
+        match chunk {
+            Chunk::Header(h) => h,
+            _ => unreachable!(),
+        }
+    }
 }
