@@ -7,6 +7,8 @@ mod endian;
 
 use chunk::Chunk;
 
+use chunk::rifx::Header;
+
 pub struct DirectorFile {
     chunks: Vec<Chunk>,
 }
@@ -14,14 +16,15 @@ pub struct DirectorFile {
 impl DirectorFile {
     pub fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
         let mut file = File::open(file.as_ref()).unwrap();
-        let mut chunks = Vec::new();
+
+        let mut df = DirectorFile {
+            chunks: Vec::new(),
+        };
 
         let header = chunk::rifx::read_rifx(&mut file);
 
-        chunks.push(Chunk::Header(header));
+        df.chunks.push(Chunk::Header(header));
 
-        DirectorFile {
-            chunks: chunks,
-        }
+        df
     }
 }
