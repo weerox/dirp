@@ -11,6 +11,8 @@ use chunk::Chunk;
 use chunk::rifx::Header;
 use chunk::rifx::Endianness;
 
+use chunk::imap;
+
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
@@ -39,6 +41,8 @@ impl DirectorFile {
 
     // A helper function to make it easier to use the correct endianness.
     fn read_chunks<R: Read, E: endian::Endianness>(&mut self, file: &mut R) {
+        let imap = imap::read_imap::<R, E>(file);
+        self.chunks.push(Chunk::InitialMap(imap));
     }
 
     pub fn header(&self) -> &Header {
