@@ -6,6 +6,12 @@ pub struct InitialMap {
     memory_map_offset: u32,
 }
 
+impl InitialMap {
+    pub fn mmap_offset(&self) -> u32 {
+        self.memory_map_offset
+    }
+}
+
 pub fn read_imap<R: Read + Endian, E: Endianness>(file: &mut R) -> InitialMap {
     let mut imap = [0; 4];
     file.read_bytes::<E>(&mut imap);
