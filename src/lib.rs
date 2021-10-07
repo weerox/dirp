@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
 mod chunk;
@@ -13,6 +13,8 @@ use chunk::rifx::Endianness;
 
 use chunk::imap;
 use chunk::imap::InitialMap;
+
+use chunk::mmap;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -41,9 +43,16 @@ impl DirectorFile {
     }
 
     // A helper function to make it easier to use the correct endianness.
-    fn read_chunks<R: Read, E: endian::Endianness>(&mut self, file: &mut R) {
+    fn read_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
         let imap = imap::read_imap::<R, E>(file);
         self.chunks.push(Chunk::InitialMap(imap));
+
+        let imap = self.imap();
+
+        file.seek(SeekFrom::Start(imap.mmap_offset() as u64)).unwrap();
+
+        let mmap = mmap::read_mmap::<R, E>(file);
+        self.chunks.push(Chunk::MemoryMap(mmap));
     }
 
     pub fn header(&self) -> &Header {
