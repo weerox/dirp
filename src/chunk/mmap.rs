@@ -64,7 +64,7 @@ pub fn read_mmap<R: Read + Endian, E: Endianness>(file: &mut R) -> MemoryMap {
 
         file.read_u16::<E>();
         file.read_u16::<E>();
-        file.read_u16::<E>();
+        file.read_u32::<E>();
 
         let entry = MemoryMapEntry {
             chunk: chunk,
