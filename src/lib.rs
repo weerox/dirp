@@ -15,6 +15,7 @@ use chunk::imap;
 use chunk::imap::InitialMap;
 
 use chunk::mmap;
+use chunk::mmap::MemoryMap;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -77,6 +78,19 @@ impl DirectorFile {
 
         match chunk {
             Chunk::InitialMap(i) => i,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn mmap(&self) -> &MemoryMap {
+        let chunk = self.chunks.iter().find(|c| if let Chunk::MemoryMap(m) = c {
+            true
+        } else {
+            false
+        }).unwrap();
+
+        match chunk {
+            Chunk::MemoryMap(m) => m,
             _ => unreachable!(),
         }
     }
