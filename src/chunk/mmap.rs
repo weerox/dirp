@@ -6,10 +6,30 @@ pub struct MemoryMap {
     entries: Vec<MemoryMapEntry>,
 }
 
+impl MemoryMap {
+    pub fn entries(&self) -> &Vec<MemoryMapEntry> {
+        &self.entries
+    }
+}
+
 pub struct MemoryMapEntry {
     chunk: String,
     size: u32,
     offset: u32,
+}
+
+impl MemoryMapEntry {
+    pub fn chunk(&self) -> &str {
+        &self.chunk
+    }
+
+    pub fn size(&self) -> u32 {
+        self.size
+    }
+
+    pub fn offset(&self) -> u32 {
+        self.offset
+    }
 }
 
 pub fn read_mmap<R: Read + Endian, E: Endianness>(file: &mut R) -> MemoryMap {
