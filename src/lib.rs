@@ -17,6 +17,8 @@ use chunk::imap::InitialMap;
 use chunk::mmap;
 use chunk::mmap::MemoryMap;
 
+use chunk::key;
+
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
@@ -54,6 +56,16 @@ impl DirectorFile {
 
         let mmap = mmap::read_mmap::<R, E>(file);
         self.chunks.push(Chunk::MemoryMap(mmap));
+
+        let mmap = self.mmap();
+        let entries = mmap.entries();
+
+        let key_offset = entries.get(3).unwrap().offset();
+
+        file.seek(SeekFrom::Start(key_offset as u64)).unwrap();
+
+        let key = key::read_key::<R, E>(file);
+        self.chunks.push(Chunk::KeyTable(key));
     }
 
     pub fn header(&self) -> &Header {
