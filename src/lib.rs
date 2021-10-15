@@ -21,6 +21,7 @@ use chunk::key;
 use chunk::key::KeyTable;
 
 use chunk::mcsl;
+use chunk::mcsl::MovieCastList;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -130,6 +131,19 @@ impl DirectorFile {
 
         match chunk {
             Chunk::KeyTable(k) => k,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn mcsl(&self) -> &MovieCastList {
+        let chunk = self.chunks.iter().find(|c| if let Chunk::MovieCastList(m) = c {
+            true
+        } else {
+            false
+        }).unwrap();
+
+        match chunk {
+            Chunk::MovieCastList(m) => m,
             _ => unreachable!(),
         }
     }
