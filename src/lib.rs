@@ -20,6 +20,8 @@ use chunk::mmap::MemoryMap;
 use chunk::key;
 use chunk::key::KeyTable;
 
+use chunk::mcsl;
+
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
@@ -67,6 +69,17 @@ impl DirectorFile {
 
         let key = key::read_key::<R, E>(file);
         self.chunks.push(Chunk::KeyTable(key));
+
+        let mmap_entries = self.mmap().entries();
+        let key = self.key();
+        let mcsl_offset = mmap_entries.get(
+            key.lookup(0x400, "MCsL".to_string()).unwrap() as usize
+        ).unwrap().offset();
+
+        file.seek(SeekFrom::Start(mcsl_offset as u64)).unwrap();
+
+        let mcsl = mcsl::read_mcsl::<R, E>(file);
+        self.chunks.push(Chunk::MovieCastList(mcsl));
     }
 
     pub fn header(&self) -> &Header {
