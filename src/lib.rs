@@ -18,6 +18,7 @@ use chunk::mmap;
 use chunk::mmap::MemoryMap;
 
 use chunk::key;
+use chunk::key::KeyTable;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -103,6 +104,19 @@ impl DirectorFile {
 
         match chunk {
             Chunk::MemoryMap(m) => m,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn key(&self) -> &KeyTable {
+        let chunk = self.chunks.iter().find(|c| if let Chunk::KeyTable(k) = c {
+            true
+        } else {
+            false
+        }).unwrap();
+
+        match chunk {
+            Chunk::KeyTable(k) => k,
             _ => unreachable!(),
         }
     }
