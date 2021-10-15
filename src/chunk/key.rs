@@ -6,6 +6,19 @@ pub struct KeyTable {
     keys: Vec<Key>,
 }
 
+impl KeyTable {
+    // Returns the resource ID for the first 'chunk' with 'owner'.
+    pub fn lookup(&self, owner: u32, chunk: String) -> Option<u32> {
+        for key in &self.keys {
+            if key.owner == owner && key.chunk == chunk {
+                return Some(key.owned);
+            }
+        }
+
+        None
+    }
+}
+
 pub struct Key {
     owned: u32,
     owner: u32,
