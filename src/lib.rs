@@ -30,7 +30,8 @@ pub struct DirectorFile {
 }
 
 impl DirectorFile {
-    pub fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
+    // Read the chunks RIFX -> imap -> mmap -> KEY*
+    pub fn base<P: AsRef<Path>>(file: P) -> DirectorFile {
         let mut file = File::open(file.as_ref()).unwrap();
 
         let mut df = DirectorFile {
@@ -42,15 +43,29 @@ impl DirectorFile {
         df.chunks.push(Chunk::Header(header));
 
         match df.header().endian() {
-            Endianness::Big => df.read_chunks::<File, BigEndian>(&mut file),
-            Endianness::Little => df.read_chunks::<File, LittleEndian>(&mut file),
+            Endianness::Big => df.read_base_chunks::<File, BigEndian>(&mut file),
+            Endianness::Little => df.read_base_chunks::<File, LittleEndian>(&mut file),
         }
 
         df
     }
 
+    // Read a dir/dxr file
+    pub fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
+        let mut base = DirectorFile::base(file.as_ref());
+
+        let mut file = File::open(file.as_ref()).unwrap();
+
+        match base.header().endian() {
+            Endianness::Big => base.read_chunks::<File, BigEndian>(&mut file),
+            Endianness::Little => base.read_chunks::<File, LittleEndian>(&mut file),
+        }
+
+        base
+    }
+
     // A helper function to make it easier to use the correct endianness.
-    fn read_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
+    fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
         let imap = imap::read_imap::<R, E>(file);
         self.chunks.push(Chunk::InitialMap(imap));
 
@@ -70,7 +85,11 @@ impl DirectorFile {
 
         let key = key::read_key::<R, E>(file);
         self.chunks.push(Chunk::KeyTable(key));
+    }
 
+    // Read dir/dxr chunks. The DirectorFile struct passed here must already
+    // have parsed the base chunks.
+    fn read_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
         let mmap_entries = self.mmap().entries();
         let key = self.key();
         let mcsl_offset = mmap_entries.get(
