@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 
 mod chunk;
@@ -31,8 +31,8 @@ pub struct DirectorFile {
 
 impl DirectorFile {
     // Read the chunks RIFX -> imap -> mmap -> KEY*
-    pub fn base<P: AsRef<Path>>(file: P) -> DirectorFile {
-        let mut file = File::open(file.as_ref()).unwrap();
+    pub fn base<P: AsRef<Path>>(file: P) -> io::Result<DirectorFile> {
+        let mut file = File::open(file.as_ref())?;
 
         let mut df = DirectorFile {
             chunks: Vec::new(),
@@ -47,21 +47,21 @@ impl DirectorFile {
             Endianness::Little => df.read_base_chunks::<File, LittleEndian>(&mut file),
         }
 
-        df
+        Ok(df)
     }
 
     // Read a dir/dxr file
-    pub fn new<P: AsRef<Path>>(file: P) -> DirectorFile {
-        let mut base = DirectorFile::base(file.as_ref());
+    pub fn new<P: AsRef<Path>>(file: P) -> io::Result<DirectorFile> {
+        let mut base = DirectorFile::base(file.as_ref())?;
 
-        let mut file = File::open(file.as_ref()).unwrap();
+        let mut file = File::open(file.as_ref())?;
 
         match base.header().endian() {
             Endianness::Big => base.read_chunks::<File, BigEndian>(&mut file),
             Endianness::Little => base.read_chunks::<File, LittleEndian>(&mut file),
         }
 
-        base
+        Ok(base)
     }
 
     // A helper function to make it easier to use the correct endianness.
