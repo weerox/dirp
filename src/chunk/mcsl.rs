@@ -6,6 +6,12 @@ pub struct MovieCastList {
     entries: Vec<Cast>,
 }
 
+impl MovieCastList {
+    pub fn entries(&self) -> &Vec<Cast> {
+        &self.entries
+    }
+}
+
 pub struct Cast {
     name: String,
     path: String,
@@ -13,6 +19,20 @@ pub struct Cast {
     max: u8,
     member_count: u16,
     id: u32,
+}
+
+impl Cast {
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn path(&self) -> &String {
+        &self.path
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id
+    }
 }
 
 pub fn read_mcsl<R: Read + Endian, E: Endianness>(file: &mut R) -> MovieCastList {
