@@ -46,8 +46,8 @@ impl DirectorFile {
         df.chunks.push(Chunk::Header(header));
 
         match df.header().endian() {
-            Endianness::Big => df.read_base_chunks::<File, BigEndian>(&mut file),
-            Endianness::Little => df.read_base_chunks::<File, LittleEndian>(&mut file),
+            Endianness::Big => read_base_chunks::<File, BigEndian>(&mut df, &mut file),
+            Endianness::Little => read_base_chunks::<File, LittleEndian>(&mut df, &mut file),
         }
 
         Ok(df)
@@ -60,82 +60,11 @@ impl DirectorFile {
         let mut file = File::open(file.as_ref())?;
 
         match base.header().endian() {
-            Endianness::Big => base.read_chunks::<File, BigEndian>(&mut file),
-            Endianness::Little => base.read_chunks::<File, LittleEndian>(&mut file),
+            Endianness::Big => read_chunks::<File, BigEndian>(&mut base, &mut file),
+            Endianness::Little => read_chunks::<File, LittleEndian>(&mut base, &mut file),
         }
 
         Ok(base)
-    }
-
-    // A helper function to make it easier to use the correct endianness.
-    fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
-        let imap = imap::read_imap::<R, E>(file);
-        self.chunks.push(Chunk::InitialMap(imap));
-
-        let imap = self.imap();
-
-        file.seek(SeekFrom::Start(imap.mmap_offset() as u64)).unwrap();
-
-        let mmap = mmap::read_mmap::<R, E>(file);
-        self.chunks.push(Chunk::MemoryMap(mmap));
-
-        let mmap = self.mmap();
-        let entries = mmap.entries();
-
-        let key_offset = entries.get(3).unwrap().offset();
-
-        file.seek(SeekFrom::Start(key_offset as u64)).unwrap();
-
-        let key = key::read_key::<R, E>(file);
-        self.chunks.push(Chunk::KeyTable(key));
-    }
-
-    // Read dir/dxr chunks. The DirectorFile struct passed here must already
-    // have parsed the base chunks.
-    fn read_chunks<R: Read + Seek, E: endian::Endianness>(&mut self, file: &mut R) {
-        let mmap_entries = self.mmap().entries();
-        let key = self.key();
-        let mcsl_offset = mmap_entries.get(
-            key.lookup(0x400, "MCsL".to_string()).unwrap() as usize
-        ).unwrap().offset();
-
-        file.seek(SeekFrom::Start(mcsl_offset as u64)).unwrap();
-
-        let mcsl = mcsl::read_mcsl::<R, E>(file);
-        self.chunks.push(Chunk::MovieCastList(mcsl));
-
-        let mcsl = self.mcsl().clone();
-        for entry in mcsl.entries() {
-            if entry.name() == "Internal" {
-                continue;
-            }
-
-            eprintln!("Parsing cast file {}", entry.name());
-
-            let path = format!("{}.cxt", entry.name());
-            let cast = DirectorFile::base(&path);
-            let cast = if let Ok(cast) = cast {
-                cast
-            } else {
-                // An error was returned when creating
-                // the DirectorFile, so we will skip reading it.
-                eprintln!("Couldn't parse file, skipping...");
-                continue
-            };
-
-            let mut cast_file = File::open(&path).unwrap();
-
-            let key = cast.key();
-
-            // Do a lookup for the id of the CAS* chunk
-            let cas_id = key.lookup(0x400, "CAS*".to_string()).unwrap();
-            let cas_offset = cast.mmap().entries().get(cas_id as usize).unwrap().offset();
-
-            cast_file.seek(SeekFrom::Start(cas_offset as u64)).unwrap();
-
-            let cas = cas::read_cas::<File, E>(&mut cast_file);
-            self.chunks.push(Chunk::CastTable(cas));
-        }
     }
 
     pub fn header(&self) -> &Header {
@@ -201,5 +130,76 @@ impl DirectorFile {
             Chunk::MovieCastList(m) => m,
             _ => unreachable!(),
         }
+    }
+}
+
+// A helper function to make it easier to use the correct endianness.
+fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, file: &mut R) {
+    let imap = imap::read_imap::<R, E>(file);
+    df.chunks.push(Chunk::InitialMap(imap));
+
+    let imap = df.imap();
+
+    file.seek(SeekFrom::Start(imap.mmap_offset() as u64)).unwrap();
+
+    let mmap = mmap::read_mmap::<R, E>(file);
+    df.chunks.push(Chunk::MemoryMap(mmap));
+
+    let mmap = df.mmap();
+    let entries = mmap.entries();
+
+    let key_offset = entries.get(3).unwrap().offset();
+
+    file.seek(SeekFrom::Start(key_offset as u64)).unwrap();
+
+    let key = key::read_key::<R, E>(file);
+    df.chunks.push(Chunk::KeyTable(key));
+}
+
+// Read dir/dxr chunks. The DirectorFile struct passed here must already
+// have parsed the base chunks.
+fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, file: &mut R) {
+    let mmap_entries = df.mmap().entries();
+    let key = df.key();
+    let mcsl_offset = mmap_entries.get(
+        key.lookup(0x400, "MCsL".to_string()).unwrap() as usize
+    ).unwrap().offset();
+
+    file.seek(SeekFrom::Start(mcsl_offset as u64)).unwrap();
+
+    let mcsl = mcsl::read_mcsl::<R, E>(file);
+    df.chunks.push(Chunk::MovieCastList(mcsl));
+
+    let mcsl = df.mcsl().clone();
+    for entry in mcsl.entries() {
+        if entry.name() == "Internal" {
+            continue;
+        }
+
+        eprintln!("Parsing cast file {}", entry.name());
+
+        let path = format!("{}.cxt", entry.name());
+        let cast = DirectorFile::base(&path);
+        let cast = if let Ok(cast) = cast {
+            cast
+        } else {
+            // An error was returned when creating
+            // the DirectorFile, so we will skip reading it.
+            eprintln!("Couldn't parse file, skipping...");
+            continue
+        };
+
+        let mut cast_file = File::open(&path).unwrap();
+
+        let key = cast.key();
+
+        // Do a lookup for the id of the CAS* chunk
+        let cas_id = key.lookup(0x400, "CAS*".to_string()).unwrap();
+        let cas_offset = cast.mmap().entries().get(cas_id as usize).unwrap().offset();
+
+        cast_file.seek(SeekFrom::Start(cas_offset as u64)).unwrap();
+
+        let cas = cas::read_cas::<File, E>(&mut cast_file);
+        df.chunks.push(Chunk::CastTable(cas));
     }
 }
