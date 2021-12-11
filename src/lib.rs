@@ -29,7 +29,10 @@ use chunk::cas::CastTable;
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
-    chunks: Vec<Chunk>,
+    header: Header,
+    imap: InitialMap,
+    mmap: MemoryMap,
+    key: KeyTable,
 }
 
 impl DirectorFile {
@@ -37,18 +40,19 @@ impl DirectorFile {
     pub fn base<P: AsRef<Path>>(file: P) -> io::Result<DirectorFile> {
         let mut file = File::open(file.as_ref())?;
 
-        let mut df = DirectorFile {
-            chunks: Vec::new(),
-        };
-
         let header = chunk::rifx::read_rifx(&mut file);
 
-        df.chunks.push(Chunk::Header(header));
+        let (imap, mmap, key) = match header.endian() {
+            Endianness::Big => read_base_chunks::<File, BigEndian>(&mut file),
+            Endianness::Little => read_base_chunks::<File, LittleEndian>(&mut file),
+        };
 
-        match df.header().endian() {
-            Endianness::Big => read_base_chunks::<File, BigEndian>(&mut df, &mut file),
-            Endianness::Little => read_base_chunks::<File, LittleEndian>(&mut df, &mut file),
-        }
+        let df = DirectorFile {
+            header: header,
+            imap: imap,
+            mmap: mmap,
+            key: key,
+        };
 
         Ok(df)
     }
@@ -68,84 +72,30 @@ impl DirectorFile {
     }
 
     pub fn header(&self) -> &Header {
-        let chunk = self.chunks.iter().find(|c| if let Chunk::Header(h) = c {
-            true
-        } else {
-            false
-        }).unwrap();
-
-        match chunk {
-            Chunk::Header(h) => h,
-            _ => unreachable!(),
-        }
+        &self.header
     }
 
     pub fn imap(&self) -> &InitialMap {
-        let chunk = self.chunks.iter().find(|c| if let Chunk::InitialMap(i) = c {
-            true
-        } else {
-            false
-        }).unwrap();
-
-        match chunk {
-            Chunk::InitialMap(i) => i,
-            _ => unreachable!(),
-        }
+        &self.imap
     }
 
     pub fn mmap(&self) -> &MemoryMap {
-        let chunk = self.chunks.iter().find(|c| if let Chunk::MemoryMap(m) = c {
-            true
-        } else {
-            false
-        }).unwrap();
-
-        match chunk {
-            Chunk::MemoryMap(m) => m,
-            _ => unreachable!(),
-        }
+        &self.mmap
     }
 
     pub fn key(&self) -> &KeyTable {
-        let chunk = self.chunks.iter().find(|c| if let Chunk::KeyTable(k) = c {
-            true
-        } else {
-            false
-        }).unwrap();
-
-        match chunk {
-            Chunk::KeyTable(k) => k,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn mcsl(&self) -> &MovieCastList {
-        let chunk = self.chunks.iter().find(|c| if let Chunk::MovieCastList(m) = c {
-            true
-        } else {
-            false
-        }).unwrap();
-
-        match chunk {
-            Chunk::MovieCastList(m) => m,
-            _ => unreachable!(),
-        }
+        &self.key
     }
 }
 
 // A helper function to make it easier to use the correct endianness.
-fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, file: &mut R) {
+fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(file: &mut R) -> (InitialMap, MemoryMap, KeyTable){
     let imap = imap::read_imap::<R, E>(file);
-    df.chunks.push(Chunk::InitialMap(imap));
-
-    let imap = df.imap();
 
     file.seek(SeekFrom::Start(imap.mmap_offset() as u64)).unwrap();
 
     let mmap = mmap::read_mmap::<R, E>(file);
-    df.chunks.push(Chunk::MemoryMap(mmap));
 
-    let mmap = df.mmap();
     let entries = mmap.entries();
 
     let key_offset = entries.get(3).unwrap().offset();
@@ -153,7 +103,8 @@ fn read_base_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile
     file.seek(SeekFrom::Start(key_offset as u64)).unwrap();
 
     let key = key::read_key::<R, E>(file);
-    df.chunks.push(Chunk::KeyTable(key));
+
+    (imap, mmap, key)
 }
 
 // Read dir/dxr chunks. The DirectorFile struct passed here must already
@@ -168,9 +119,7 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
     file.seek(SeekFrom::Start(mcsl_offset as u64)).unwrap();
 
     let mcsl = mcsl::read_mcsl::<R, E>(file);
-    df.chunks.push(Chunk::MovieCastList(mcsl));
 
-    let mcsl = df.mcsl().clone();
     for entry in mcsl.entries() {
         if entry.name() == "Internal" {
             continue;
@@ -200,6 +149,5 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
         cast_file.seek(SeekFrom::Start(cas_offset as u64)).unwrap();
 
         let cas = cas::read_cas::<File, E>(&mut cast_file);
-        df.chunks.push(Chunk::CastTable(cas));
     }
 }
