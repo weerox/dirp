@@ -23,6 +23,9 @@ use chunk::key::KeyTable;
 use chunk::mcsl;
 use chunk::mcsl::MovieCastList;
 
+use chunk::cas;
+use chunk::cas::CastTable;
+
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
@@ -101,27 +104,37 @@ impl DirectorFile {
         let mcsl = mcsl::read_mcsl::<R, E>(file);
         self.chunks.push(Chunk::MovieCastList(mcsl));
 
-        let mcsl = self.mcsl();
+        let mcsl = self.mcsl().clone();
         for entry in mcsl.entries() {
             if entry.name() == "Internal" {
                 continue;
             }
 
+            eprintln!("Parsing cast file {}", entry.name());
+
             let path = format!("{}.cxt", entry.name());
-            let cast = DirectorFile::base(path);
+            let cast = DirectorFile::base(&path);
             let cast = if let Ok(cast) = cast {
                 cast
             } else {
                 // An error was returned when creating
                 // the DirectorFile, so we will skip reading it.
+                eprintln!("Couldn't parse file, skipping...");
                 continue
             };
+
+            let mut cast_file = File::open(&path).unwrap();
 
             let key = cast.key();
 
             // Do a lookup for the id of the CAS* chunk
             let cas_id = key.lookup(0x400, "CAS*".to_string()).unwrap();
             let cas_offset = cast.mmap().entries().get(cas_id as usize).unwrap().offset();
+
+            cast_file.seek(SeekFrom::Start(cas_offset as u64)).unwrap();
+
+            let cas = cas::read_cas::<File, E>(&mut cast_file);
+            self.chunks.push(Chunk::CastTable(cas));
         }
     }
 

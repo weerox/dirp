@@ -2,6 +2,7 @@ use std::io::Read;
 
 use crate::endian::{Endian, Endianness, BigEndian};
 
+#[derive(Clone)]
 pub struct MovieCastList {
     entries: Vec<Cast>,
 }
@@ -12,6 +13,7 @@ impl MovieCastList {
     }
 }
 
+#[derive(Clone)]
 pub struct Cast {
     name: String,
     path: String,
