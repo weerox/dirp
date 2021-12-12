@@ -6,6 +6,12 @@ pub struct CastTable {
     members: Vec<Member>,
 }
 
+impl CastTable {
+    pub fn members(&self) -> &Vec<Member> {
+        &self.members
+    }
+}
+
 type Member = u32;
 
 pub fn read_cas<R: Read + Endian, E: Endianness>(file: &mut R) -> CastTable {
