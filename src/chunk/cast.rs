@@ -11,6 +11,16 @@ pub struct CastProperties {
     properties: HashMap<CastPropertyName, CastPropertyValue>,
 }
 
+impl CastProperties {
+    pub fn kind(&self) -> CastKind {
+        self.kind
+    }
+
+    pub fn properties(&self) -> &HashMap<CastPropertyName, CastPropertyValue> {
+        &self.properties
+    }
+}
+
 #[derive(PartialEq, Eq, Hash)]
 pub enum CastPropertyName {
     Name = 1,
@@ -29,6 +39,7 @@ pub enum CastPropertyValue {
     BitmapDepth(usize),
 }
 
+#[derive(Copy, Clone)]
 pub enum CastKind {
     Bitmap = 1,
     FilmLoop,
