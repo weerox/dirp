@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::endian::{Endian, Endianness, BigEndian};
 
 pub struct CastProperties {
-    t: CastType,
+    kind: CastKind,
     // TODO It would be nice if we could change this to a HashSet of enums,
     // where only the enum type and not the value is part of the hash.
     properties: HashMap<CastPropertyName, CastPropertyValue>,
@@ -29,7 +29,7 @@ pub enum CastPropertyValue {
     BitmapDepth(usize),
 }
 
-pub enum CastType {
+pub enum CastKind {
     Bitmap = 1,
     FilmLoop,
     StyledText,
@@ -57,26 +57,26 @@ pub fn read_cast<R: Read + Endian, E: Endianness>(file: &mut R) -> CastPropertie
     let _size = file.read_u32::<E>();
     let mut read = 0;
 
-    let t = file.read_u32::<BigEndian>();
+    let kind = file.read_u32::<BigEndian>();
     read += 4;
-    eprintln!("cast type: {}", t);
-    let t = match t {
-        1 =>  CastType::Bitmap,
-        2 =>  CastType::FilmLoop,
-        3 =>  CastType::StyledText,
-        4 =>  CastType::Palette,
-        5 =>  CastType::Picture,
-        6 =>  CastType::Sound,
-        7 =>  CastType::Button,
-        8 =>  CastType::Shape,
-        9 =>  CastType::Movie,
-        10 => CastType::DigitalVideo,
-        11 => CastType::Script,
-        12 => CastType::Text,
-        13 => CastType::OLE,
-        14 => CastType::Transition,
-        15 => CastType::Xtra,
-        _ => panic!("Unknown cast type: {}", t),
+    eprintln!("cast type: {}", kind);
+    let kind = match kind {
+        1 =>  CastKind::Bitmap,
+        2 =>  CastKind::FilmLoop,
+        3 =>  CastKind::StyledText,
+        4 =>  CastKind::Palette,
+        5 =>  CastKind::Picture,
+        6 =>  CastKind::Sound,
+        7 =>  CastKind::Button,
+        8 =>  CastKind::Shape,
+        9 =>  CastKind::Movie,
+        10 => CastKind::DigitalVideo,
+        11 => CastKind::Script,
+        12 => CastKind::Text,
+        13 => CastKind::OLE,
+        14 => CastKind::Transition,
+        15 => CastKind::Xtra,
+        _ => panic!("Unknown cast type: {}", kind),
     };
 
     // This seem to be the size of the general properties.
@@ -131,8 +131,8 @@ pub fn read_cast<R: Read + Endian, E: Endianness>(file: &mut R) -> CastPropertie
 
     // TODO Parse the properties for the specific type
 
-    match t {
-        CastType::Bitmap => {
+    match kind {
+        CastKind::Bitmap => {
             file.read_u16::<BigEndian>();
 
             let top = file.read_u16::<BigEndian>();
@@ -180,7 +180,7 @@ pub fn read_cast<R: Read + Endian, E: Endianness>(file: &mut R) -> CastPropertie
     eprintln!();
 
     CastProperties {
-        t: t,
+        kind: kind,
         properties: properties,
     }
 }
