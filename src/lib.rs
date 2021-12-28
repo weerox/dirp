@@ -26,6 +26,9 @@ use chunk::mcsl::MovieCastList;
 use chunk::cas;
 use chunk::cas::CastTable;
 
+use chunk::cast;
+use chunk::cast::CastProperties;
+
 use endian::{BigEndian, LittleEndian};
 
 pub struct DirectorFile {
@@ -149,5 +152,17 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
         cast_file.seek(SeekFrom::Start(cas_offset as u64)).unwrap();
 
         let cas = cas::read_cas::<File, E>(&mut cast_file);
+
+        for &member in cas.members() {
+            if member == 0 {
+                continue;
+            }
+
+            let member_offset = cast.mmap().entries().get(member as usize).unwrap().offset();
+
+            cast_file.seek(SeekFrom::Start(member_offset as u64)).unwrap();
+
+            let cast_properties = cast::read_cast::<File, E>(&mut cast_file);
+        }
     }
 }
