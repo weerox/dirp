@@ -5,6 +5,7 @@ pub mod key;
 pub mod mcsl;
 pub mod cas;
 pub mod cast;
+pub mod bitd;
 
 use rifx::Header;
 use imap::InitialMap;
@@ -13,6 +14,7 @@ use key::KeyTable;
 use mcsl::MovieCastList;
 use cas::CastTable;
 use cast::CastProperties;
+use bitd::BitmapData;
 
 pub enum Chunk {
     Header(Header),
@@ -22,4 +24,5 @@ pub enum Chunk {
     MovieCastList(MovieCastList),
     CastTable(CastTable),
     CastProperties(CastProperties),
+    BitmapData(BitmapData),
 }

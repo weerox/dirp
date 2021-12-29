@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::collections::VecDeque;
 
 mod chunk;
 
@@ -28,6 +29,12 @@ use chunk::cas::CastTable;
 
 use chunk::cast;
 use chunk::cast::CastProperties;
+use chunk::cast::CastPropertyName;
+use chunk::cast::CastPropertyValue;
+use chunk::cast::CastKind;
+
+use chunk::bitd;
+use chunk::bitd::BitmapData;
 
 use endian::{BigEndian, LittleEndian};
 
@@ -163,6 +170,120 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
             cast_file.seek(SeekFrom::Start(member_offset as u64)).unwrap();
 
             let cast_properties = cast::read_cast::<File, E>(&mut cast_file);
+
+            match cast_properties.kind() {
+                CastKind::Bitmap => {
+                    // Bitmaps own the BITD chunk
+                    let id = match cast.key().lookup(member, "BITD".to_string()) {
+                        Some(x) => x,
+                        // TODO For some reason, some of the bitmap casts
+                        // doesn't own a BITD chunk...?
+                        None => continue,
+                    };
+                    let offset = cast.mmap().entries().get(id as usize).unwrap().offset();
+
+                    cast_file.seek(SeekFrom::Start(offset as u64)).unwrap();
+
+                    let data = bitd::read_bitd::<File, E>(&mut cast_file);
+
+                    let depth = cast_properties.properties().get(&CastPropertyName::BitmapDepth).unwrap();
+                    let depth = match depth {
+                        CastPropertyValue::BitmapDepth(d) => *d,
+                        _ => panic!("wrong enum variant"),
+                    };
+
+                    // The parser can only hande a bit depth of 32.
+                    if depth == 32 {
+                        let bitmap = parse_bitmap_data(&cast_properties, data);
+                    } else {
+                        eprintln!("Can only handle bitmaps with bit depth of 32");
+                    }
+                },
+                _ => {
+                    eprintln!("This cast type is not supported, skipping")
+                }
+            }
         }
     }
+}
+
+// NOTE We assume that the bit depth is 32
+fn parse_bitmap_data(properties: &CastProperties, data: BitmapData) -> Vec<Vec<[u8; 4]>> {
+    let width = properties.properties().get(&CastPropertyName::BitmapWidth).unwrap();
+    let width = match width {
+        CastPropertyValue::BitmapWidth(w) => *w,
+        _ => panic!("wrong enum variant"),
+    };
+    let height = properties.properties().get(&CastPropertyName::BitmapHeight).unwrap();
+    let height = match height {
+        CastPropertyValue::BitmapHeight(h) => *h,
+        _ => panic!("wrong enum variant"),
+    };
+
+    let mut bitmap = vec![vec![[0u8, 0u8, 0u8, 255u8]; width]; height];
+
+    let mut x = 0;
+    let mut y = 0;
+    let mut c = 0;
+
+    let mut data = VecDeque::from(data.data().clone());
+
+    while !data.is_empty() {
+        let len = data.pop_front().unwrap();
+
+        // NOTE This value is from Shockky. MrBrax use >= 129
+        if len >= 128 {
+            let len = 257 - len as u16;
+            let len = len as u8;
+
+            let b = data.pop_front().unwrap();
+
+            for _ in 0..len {
+                bitmap[y][x][c] = b;
+
+                x += 1;
+                if x >= width {
+                    c += 1;
+                    c %= 4;
+
+                    x = 0;
+
+                    if c == 0 {
+                        y += 1;
+                    }
+                }
+
+                if y >= height {
+                    return bitmap;
+                }
+            }
+        } else {
+            let len = len + 1;
+
+            for _ in 0..len {
+                let b = data.pop_front().unwrap();
+
+                bitmap[y][x][c] = b;
+
+                x += 1;
+
+                if x >= width {
+                    c += 1;
+                    c %= 4;
+
+                    x = 0;
+
+                    if c == 0 {
+                        y += 1;
+                    }
+                }
+
+                if y >= height {
+                    return bitmap;
+                }
+            }
+        }
+    }
+
+    bitmap
 }
