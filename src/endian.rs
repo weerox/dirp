@@ -28,10 +28,10 @@ pub trait Endian: Read {
         }
     }
 
-    fn read_u8<E: Endianness>(&mut self) -> u8 {
+    fn read_u8(&mut self) -> u8 {
         let mut bytes = [0; 1];
         self.read(&mut bytes).unwrap();
-        // a bte is the same in BE and LE
+        // a byte is the same in BE and LE
         u8::from_be_bytes(bytes)
     }
 

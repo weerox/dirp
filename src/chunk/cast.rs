@@ -164,8 +164,8 @@ pub fn read_cast<R: Read + Endian, E: Endianness>(file: &mut R) -> CastPropertie
 
             eprintln!("{} {}", point_x, point_y);
 
-            let _a = file.read_u8::<BigEndian>();
-            let bit_depth = file.read_u8::<BigEndian>();
+            let _a = file.read_u8();
+            let bit_depth = file.read_u8();
 
             eprintln!("{} {}", _a, bit_depth);
 
@@ -203,7 +203,7 @@ fn read_property<R: Read + Endian>(
 ) -> Option<(CastPropertyName, CastPropertyValue)> {
     match index {
         1 => {
-            let str_len = file.read_u8::<BigEndian>() as usize;
+            let str_len = file.read_u8() as usize;
 
             // Make sure that we don't read more bytes than
             // the given length of the property.
@@ -216,7 +216,7 @@ fn read_property<R: Read + Endian>(
             let mut name = vec![0; str_len];
             file.read_bytes::<BigEndian>(&mut name);
             let name = String::from_utf8(name).unwrap();
-            //let _null = file.read_u8::<BigEndian>();
+            //let _null = file.read_u8();
 
             eprintln!("name: {}", name);
 
@@ -228,7 +228,7 @@ fn read_property<R: Read + Endian>(
             let mut name = vec![0; len];
             file.read_bytes::<BigEndian>(&mut name);
             let name = String::from_utf8(name).unwrap();
-            //let _null = file.read_u8::<BigEndian>();
+            //let _null = file.read_u8();
 
             eprintln!("name: {}", name);
 
