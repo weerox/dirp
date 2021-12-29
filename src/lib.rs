@@ -29,8 +29,7 @@ use chunk::cas::CastTable;
 
 use chunk::cast;
 use chunk::cast::CastProperties;
-use chunk::cast::CastPropertyName;
-use chunk::cast::CastPropertyValue;
+use chunk::cast::CastProperty;
 use chunk::cast::CastKind;
 
 use chunk::bitd;
@@ -186,11 +185,9 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
 
                     let data = bitd::read_bitd::<File, E>(&mut cast_file);
 
-                    let depth = cast_properties.properties().get(&CastPropertyName::BitmapDepth).unwrap();
-                    let depth = match depth {
-                        CastPropertyValue::BitmapDepth(d) => *d,
-                        _ => panic!("wrong enum variant"),
-                    };
+                    let &depth = cast_properties.properties()
+                        .get(&CastProperty::BitmapDepth).unwrap()
+                        .downcast_ref::<usize>().unwrap();
 
                     // The parser can only hande a bit depth of 32.
                     if depth == 32 {
@@ -209,16 +206,12 @@ fn read_chunks<R: Read + Seek, E: endian::Endianness>(df: &mut DirectorFile, fil
 
 // NOTE We assume that the bit depth is 32
 fn parse_bitmap_data(properties: &CastProperties, data: BitmapData) -> Vec<Vec<[u8; 4]>> {
-    let width = properties.properties().get(&CastPropertyName::BitmapWidth).unwrap();
-    let width = match width {
-        CastPropertyValue::BitmapWidth(w) => *w,
-        _ => panic!("wrong enum variant"),
-    };
-    let height = properties.properties().get(&CastPropertyName::BitmapHeight).unwrap();
-    let height = match height {
-        CastPropertyValue::BitmapHeight(h) => *h,
-        _ => panic!("wrong enum variant"),
-    };
+    let &width = properties.properties()
+        .get(&CastProperty::BitmapWidth).unwrap()
+        .downcast_ref::<usize>().unwrap();
+    let &height = properties.properties()
+        .get(&CastProperty::BitmapHeight).unwrap()
+        .downcast_ref::<usize>().unwrap();
 
     let mut bitmap = vec![vec![[0u8, 0u8, 0u8, 255u8]; width]; height];
 

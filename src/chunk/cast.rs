@@ -2,13 +2,15 @@ use std::io::Read;
 
 use std::collections::HashMap;
 
+use std::any::Any;
+
 use crate::endian::{Endian, Endianness, BigEndian};
 
 pub struct CastProperties {
     kind: CastKind,
     // TODO It would be nice if we could change this to a HashSet of enums,
     // where only the enum type and not the value is part of the hash.
-    properties: HashMap<CastPropertyName, CastPropertyValue>,
+    properties: HashMap<CastProperty, Box<dyn Any>>,
 }
 
 impl CastProperties {
@@ -16,27 +18,18 @@ impl CastProperties {
         self.kind
     }
 
-    pub fn properties(&self) -> &HashMap<CastPropertyName, CastPropertyValue> {
+    pub fn properties(&self) -> &HashMap<CastProperty, Box<dyn Any>> {
         &self.properties
     }
 }
 
 #[derive(PartialEq, Eq, Hash)]
-pub enum CastPropertyName {
-    Name = 1,
-    XtraName = 10,
-    BitmapWidth = 22,
-    BitmapHeight = 23,
-    BitmapDepth = 24,
-}
-
-#[derive(PartialEq, Eq, Hash)]
-pub enum CastPropertyValue {
-    Name(String),
-    XtraName(String),
-    BitmapWidth(usize),
-    BitmapHeight(usize),
-    BitmapDepth(usize),
+pub enum CastProperty {
+    Name = 1,          // String
+    XtraName = 10,     // String
+    BitmapWidth = 22,  // usize
+    BitmapHeight = 23, // usize
+    BitmapDepth = 24,  // usize
 }
 
 #[derive(Copy, Clone)]
@@ -173,14 +166,15 @@ pub fn read_cast<R: Read + Endian, E: Endianness>(file: &mut R) -> CastPropertie
             let _c = file.read_u16::<BigEndian>() as i16;
             let _d = file.read_u16::<BigEndian>() as i16;
 
+
             properties.insert(
-                CastPropertyName::BitmapWidth, CastPropertyValue::BitmapWidth(width as usize)
+                CastProperty::BitmapWidth, Box::new(width as usize)
             );
             properties.insert(
-                CastPropertyName::BitmapHeight, CastPropertyValue::BitmapHeight(height as usize)
+                CastProperty::BitmapHeight, Box::new(height as usize)
             );
             properties.insert(
-                CastPropertyName::BitmapDepth, CastPropertyValue::BitmapDepth(bit_depth as usize)
+                CastProperty::BitmapDepth, Box::new(bit_depth as usize)
             );
         },
         _ => {
@@ -200,7 +194,7 @@ fn read_property<R: Read + Endian>(
     file: &mut R,
     index: usize,
     len: usize
-) -> Option<(CastPropertyName, CastPropertyValue)> {
+) -> Option<(CastProperty, Box<dyn Any>)> {
     match index {
         1 => {
             let str_len = file.read_u8() as usize;
@@ -220,7 +214,7 @@ fn read_property<R: Read + Endian>(
 
             eprintln!("name: {}", name);
 
-            Some((CastPropertyName::Name, CastPropertyValue::Name(name)))
+            Some((CastProperty::Name, Box::new(name)))
         },
         10 => {
             // NOTE This will be terminated by a NULL byte,
@@ -232,7 +226,7 @@ fn read_property<R: Read + Endian>(
 
             eprintln!("name: {}", name);
 
-            Some((CastPropertyName::XtraName, CastPropertyValue::XtraName(name)))
+            Some((CastProperty::XtraName, Box::new(name)))
         },
         i => {
             let mut scrap = vec![0; len];
